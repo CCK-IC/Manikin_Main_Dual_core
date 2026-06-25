@@ -5,7 +5,6 @@
 #include <ESP32TimerInterrupt.h>
 #include <FDC2214.h>
 #include <Adafruit_NeoPixel.h>
-
 #include "parameters.h"
 
 // Instances

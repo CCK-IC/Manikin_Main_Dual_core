@@ -1,0 +1,709 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ICLTC CPR Training System Dashboard</title>
+    <!-- Tailwind CSS for modern responsive UI -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for real-time depth graph tracking -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Custom scrollbar styling for technical dashboard look */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+
+    <!-- TOP HEADER -->
+    <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-50 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+            <div class="h-4 w-4 rounded-full bg-red-600 animate-pulse"></div>
+            <h1 class="text-xl font-bold tracking-wider text-slate-100">ICLTC CPR TRAINING SYSTEM</h1>
+            <span class="text-xs bg-slate-800 px-2.5 py-1 rounded text-slate-400 border border-slate-700">v1.1 Receiver Tool</span>
+        </div>
+
+        <!-- Serial Connection Controls -->
+        <div class="flex items-center gap-3">
+            <button id="connectBtn" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-lg text-sm transition-all flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+                Connect PC Receiver
+            </button>
+            <button id="disconnectBtn" class="hidden bg-rose-600 hover:bg-rose-500 text-white font-medium px-4 py-2 rounded-lg text-sm transition-all">
+                Disconnect
+            </button>
+            <div id="connectionStatus" class="text-xs text-slate-400 border border-slate-800 px-3 py-2 rounded-lg bg-slate-950">
+                Status: <span class="text-rose-500 font-semibold uppercase">Disconnected</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="p-6 space-y-6">
+
+        <!-- GLOBAL CONTROL PANEL -->
+        <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Game & Simulation Controls -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+                <h2 class="text-lg font-semibold text-slate-300 border-b border-slate-800 pb-2 flex justify-between items-center">
+                    <span>Global Controls</span>
+                    <span class="text-xs text-slate-500 font-mono">Commands to All</span>
+                </h2>
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs text-slate-400 font-semibold">Pump Mode</label>
+                        <select id="globalPump" class="bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500">
+                            <option value="0">Pump OFF</option>
+                            <option value="1">Pump ON</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-xs text-slate-400 font-semibold">Vibrator Mode</label>
+                        <select id="globalVib" class="bg-slate-950 border border-slate-800 rounded px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500">
+                            <option value="0">Vibrator OFF</option>
+                            <option value="1">Vibrator ON</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3 pt-2">
+                    <button id="globalStartBtn" class="bg-blue-600 hover:bg-blue-500 active:scale-95 transition-all text-white font-semibold py-2.5 rounded-lg text-sm">
+                        START GAME
+                    </button>
+                    <button id="globalStopBtn" class="bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all text-slate-300 font-semibold py-2.5 rounded-lg text-sm">
+                        STOP GAME
+                    </button>
+                </div>
+            </div>
+
+            <!-- Scalability Configuration -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+                <h2 class="text-lg font-semibold text-slate-300 border-b border-slate-800 pb-2">System Scalability</h2>
+                <div class="space-y-3">
+                    <div>
+                        <label class="block text-xs text-slate-400 font-semibold mb-1.5">Number of Displayed Manikins (1 - 12):</label>
+                        <div class="flex items-center gap-3">
+                            <input type="range" id="manikinCountRange" min="1" max="12" value="6" class="w-full h-2 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-blue-500">
+                            <span id="manikinCountDisplay" class="text-lg font-bold font-mono text-blue-400 min-w-[2ch]">6</span>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 font-semibold mb-1.5">Depth Graph Duration History:</label>
+                        <select id="graphDuration" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:border-blue-500">
+                            <option value="30">Last 30 Seconds</option>
+                            <option value="60" selected>Last 60 Seconds</option>
+                            <option value="120">Last 120 Seconds</option>
+                            <option value="300">Last 5 Minutes</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Raw Data Terminal & Command Injector -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4">
+                <h2 class="text-lg font-semibold text-slate-300 border-b border-slate-800 pb-2 flex justify-between items-center">
+                    <span>Direct Manikin Control</span>
+                    <span id="activeSelectionTag" class="text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-2 py-0.5 rounded font-mono">Selected: All</span>
+                </h2>
+                <div class="space-y-3">
+                    <div class="flex gap-2">
+                        <select id="targetManikin" class="w-1/3 bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-300 focus:outline-none focus:border-blue-500">
+                            <option value="all">All (Broadcast)</option>
+                            <!-- Programmatically populated based on count -->
+                        </select>
+                        <input type="text" id="customSerialCmd" placeholder="e.g. AA100BB" class="w-2/3 bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs font-mono text-slate-300 focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="sendCustomCmdBtn" class="w-1/2 bg-slate-800 hover:bg-slate-700 text-slate-300 py-1.5 rounded text-xs font-semibold">
+                            Send Custom Command
+                        </button>
+                        <button id="clearLogsBtn" class="w-1/2 border border-slate-800 hover:bg-slate-800/50 text-slate-400 py-1.5 rounded text-xs">
+                            Clear Terminal Logs
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- MAIN GRID: MANIKINS VISUALIZATION -->
+        <section id="manikinsGrid" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            <!-- Dynamic Manikin Cards get generated here -->
+        </section>
+
+        <!-- DEBUG & DIAGNOSTICS CONSOLE -->
+        <section class="bg-slate-900 border border-slate-800 rounded-xl p-5">
+            <h2 class="text-lg font-semibold text-slate-300 border-b border-slate-800 pb-3 flex items-center justify-between">
+                <span>Receiver Console Log</span>
+                <span class="text-xs text-slate-500 font-mono">Raw data traffic monitor</span>
+            </h2>
+            <div id="rawSerialConsole" class="mt-3 bg-slate-950 border border-slate-900 rounded-lg p-4 font-mono text-xs text-slate-400 h-40 overflow-y-auto space-y-1">
+                <div class="text-slate-600">Console listening initialized. Connect PC Receiver to stream telemetry...</div>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        // System variables
+        let serialPort = null;
+        let reader = null;
+        let writer = null;
+        let incomingBuffer = "";
+        let numManikins = 6;
+        
+        // Data Structures for storing manikin telemetry histories
+        const manikinsData = {};
+
+        // Setup DOM element selectors
+        const connectBtn = document.getElementById('connectBtn');
+        const disconnectBtn = document.getElementById('disconnectBtn');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const manikinCountRange = document.getElementById('manikinCountRange');
+        const manikinCountDisplay = document.getElementById('manikinCountDisplay');
+        const graphDuration = document.getElementById('graphDuration');
+        const globalPump = document.getElementById('globalPump');
+        const globalVib = document.getElementById('globalVib');
+        const globalStartBtn = document.getElementById('globalStartBtn');
+        const globalStopBtn = document.getElementById('globalStopBtn');
+        const targetManikin = document.getElementById('targetManikin');
+        const activeSelectionTag = document.getElementById('activeSelectionTag');
+        const customSerialCmd = document.getElementById('customSerialCmd');
+        const sendCustomCmdBtn = document.getElementById('sendCustomCmdBtn');
+        const clearLogsBtn = document.getElementById('clearLogsBtn');
+        const rawSerialConsole = document.getElementById('rawSerialConsole');
+        const manikinsGrid = document.getElementById('manikinsGrid');
+
+        // Web Serial API handler
+        async function connectSerial() {
+            if ("serial" in navigator) {
+                try {
+                    serialPort = await navigator.serial.requestPort();
+                    await serialPort.open({ baudRate: 115200 });
+                    
+                    connectionStatus.innerHTML = `Status: <span class="text-emerald-400 font-semibold uppercase">Connected</span>`;
+                    connectBtn.classList.add('hidden');
+                    disconnectBtn.classList.remove('hidden');
+                    
+                    writer = serialPort.writable.getWriter();
+                    logToConsole("Serial Port connected successfully at 115200 baud.", 'system');
+                    
+                    readSerialLoop();
+                } catch (err) {
+                    logToConsole(`Error accessing Serial Port: ${err.message}`, 'error');
+                }
+            } else {
+                alert("The Web Serial API is not supported in this browser. Please use Google Chrome or Microsoft Edge.");
+            }
+        }
+
+        async function disconnectSerial() {
+            if (reader) {
+                await reader.cancel();
+            }
+            if (writer) {
+                writer.releaseLock();
+            }
+            if (serialPort) {
+                await serialPort.close();
+            }
+            connectionStatus.innerHTML = `Status: <span class="text-rose-500 font-semibold uppercase">Disconnected</span>`;
+            connectBtn.classList.remove('hidden');
+            disconnectBtn.classList.add('hidden');
+            logToConsole("Serial Port disconnected.", 'system');
+        }
+
+        // Continual Reading Stream
+        async function readSerialLoop() {
+            const decoder = new TextDecoderStream();
+            const inputClosed = serialPort.readable.pipeTo(decoder.writable);
+            reader = decoder.readable.getReader();
+
+            try {
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    if (value) {
+                        incomingBuffer += value;
+                        processBufferedData();
+                    }
+                }
+            } catch (err) {
+                logToConsole(`Stream reading error: ${err.message}`, 'error');
+            } finally {
+                reader.releaseLock();
+            }
+        }
+
+        // Buffer processing using packet delimiters "AA" and "BB"
+        function processBufferedData() {
+            let startIdx;
+            while ((startIdx = incomingBuffer.indexOf("AA")) !== -1) {
+                let endIdx = incomingBuffer.indexOf("BB", startIdx);
+                if (endIdx !== -1) {
+                    // Extract full message including delimiters
+                    let packetStr = incomingBuffer.substring(startIdx, endIdx + 2);
+                    // Remove processed chunk from buffer
+                    incomingBuffer = incomingBuffer.substring(endIdx + 2);
+                    
+                    // Match protocol structure length (47 characters)
+                    if (packetStr.length === 47) {
+                        parseManikinPacket(packetStr);
+                    } else {
+                        logToConsole(`Malformed packet received (${packetStr.length} chars): ${packetStr}`, 'warning');
+                    }
+                } else {
+                    // Start marker exists but End marker hasn't arrived yet
+                    break;
+                }
+            }
+            // Prevent memory leakage from unstructured data buildup
+            if (incomingBuffer.length > 500) {
+                incomingBuffer = "";
+            }
+        }
+
+        // Parse protocol message 
+        function parseManikinPacket(p) {
+            try {
+                const packetType = parseInt(p.substr(2, 1));
+                const id = parseInt(p.substr(3, 1));
+                const timeSec = parseInt(p.substr(4, 3));
+                
+                // Decode 5 second depth profile
+                const depths = [
+                    { min: parseInt(p.substr(7, 3)), max: parseInt(p.substr(10, 3)) }, // sec 1
+                    { min: parseInt(p.substr(13, 3)), max: parseInt(p.substr(16, 3)) }, // sec 2
+                    { min: parseInt(p.substr(19, 3)), max: parseInt(p.substr(22, 3)) }, // sec 3
+                    { min: parseInt(p.substr(25, 3)), max: parseInt(p.substr(28, 3)) }, // sec 4
+                    { min: parseInt(p.substr(31, 3)), max: parseInt(p.substr(34, 3)) }  // sec 5
+                ];
+                
+                const avgRate = parseInt(p.substr(37, 3));
+                const touchStatus = parseInt(p.substr(40, 1));
+                const aed1 = parseInt(p.substr(41, 1));
+                const aed2 = parseInt(p.substr(42, 1));
+                const pumpStatus = parseInt(p.substr(43, 1));
+                const vibStatus = parseInt(p.substr(44, 1));
+
+                // Log raw incoming message
+                logToConsole(`[Rx] ID:${id} - Pkt:${packetType} - AvgRate:${avgRate} - Raw: ${p}`, 'rx');
+
+                // Update manikin database structure
+                if (id >= 1 && id <= 12) {
+                    updateManikinUI(id, {
+                        packetType,
+                        timeSec,
+                        depths,
+                        avgRate,
+                        touchStatus,
+                        aed1,
+                        aed2,
+                        pumpStatus,
+                        vibStatus,
+                        lastSeen: Date.now()
+                    });
+                }
+            } catch (err) {
+                logToConsole(`Parsing error: ${err.message}`, 'error');
+            }
+        }
+
+        // Send Command to Receiver via Serial Port
+        async function sendCommand(gameStart, pumpStatus, vibStatus) {
+            if (!writer) {
+                alert("Serial port is not connected. Cannot send command.");
+                return;
+            }
+            
+            // Format constraint: AA [Game: 1] [Pump: 1] [Vibrator: 1] BB -> 7 Characters total
+            const packet = `AA${gameStart}${pumpStatus}${vibStatus}BB\n`;
+            
+            try {
+                const encoder = new TextEncoder();
+                await writer.write(encoder.encode(packet));
+                logToConsole(`[Tx Command]: ${packet}`, 'tx');
+            } catch (err) {
+                logToConsole(`Command Transmission Error: ${err.message}`, 'error');
+            }
+        }
+
+        // Render & Maintain Visual Manikin Statuses inside DOM
+        function buildManikinCards() {
+            manikinsGrid.innerHTML = "";
+            // Keep drop-down selector updated
+            targetManikin.innerHTML = `<option value="all">All (Broadcast)</option>`;
+            
+            for (let i = 1; i <= numManikins; i++) {
+                // Initialize historical data structure for chart tracking if not existing
+                if (!manikinsData[i]) {
+                    manikinsData[i] = {
+                        chart: null,
+                        labels: [],
+                        minDepths: [],
+                        maxDepths: [],
+                        lastSeen: null
+                    };
+                }
+
+                // Add to custom selection menu
+                targetManikin.innerHTML += `<option value="${i}">Manikin ${i}</option>`;
+
+                const cardHTML = `
+                    <div id="manikin-card-${i}" class="bg-slate-900 border border-slate-800 rounded-xl p-5 space-y-4 shadow-lg transition-all duration-300">
+                        <!-- Top ID info -->
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="bg-slate-800 text-slate-300 font-mono text-xs px-2.5 py-1 rounded font-bold border border-slate-700">M0${i}</span>
+                                <h3 class="font-bold text-slate-100">Manikin Unit ${i}</h3>
+                            </div>
+                            <div class="flex items-center gap-1.5 text-xs text-slate-400">
+                                <span id="m-indicator-${i}" class="h-2 w-2 rounded-full bg-slate-600"></span>
+                                <span id="m-statusText-${i}">Offline</span>
+                            </div>
+                        </div>
+
+                        <!-- Real-time metrics -->
+                        <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                            <div class="bg-slate-950 p-2 rounded-lg border border-slate-900">
+                                <p class="text-slate-500 font-medium mb-1">Time Elapsed</p>
+                                <p id="m-time-${i}" class="font-mono font-bold text-slate-300 text-sm">--:--</p>
+                            </div>
+                            <div class="bg-slate-950 p-2 rounded-lg border border-slate-900">
+                                <p class="text-slate-500 font-medium mb-1">Avg Rate (5s)</p>
+                                <p id="m-rate-${i}" class="font-mono font-bold text-slate-300 text-sm">0 <span class="text-[9px] text-slate-500">bpm</span></p>
+                            </div>
+                            <div class="bg-slate-950 p-2 rounded-lg border border-slate-900">
+                                <p class="text-slate-500 font-medium mb-1">Touch</p>
+                                <span id="m-touch-${i}" class="inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-500">OFF</span>
+                            </div>
+                        </div>
+
+                        <!-- AED Status Trackers -->
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="bg-slate-950/60 p-2 rounded-lg border border-slate-900 text-xs">
+                                <p class="text-slate-500 text-center mb-1 font-medium">AED Pad 1</p>
+                                <div id="m-aed1-${i}" class="text-center py-1 rounded text-[11px] font-semibold bg-slate-800/50 text-slate-400 border border-slate-800">
+                                    ABSENT
+                                </div>
+                            </div>
+                            <div class="bg-slate-950/60 p-2 rounded-lg border border-slate-900 text-xs">
+                                <p class="text-slate-500 text-center mb-1 font-medium">AED Pad 2</p>
+                                <div id="m-aed2-${i}" class="text-center py-1 rounded text-[11px] font-semibold bg-slate-800/50 text-slate-400 border border-slate-800">
+                                    ABSENT
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Mini Plot for Compression depth tracking -->
+                        <div class="relative h-32 bg-slate-950 rounded-lg p-2 border border-slate-900">
+                            <canvas id="depth-chart-${i}"></canvas>
+                        </div>
+
+                        <!-- Live Action States / Device Activators -->
+                        <div class="flex items-center justify-between border-t border-slate-800 pt-3 text-xs">
+                            <div class="flex gap-2">
+                                <span id="actuator-pump-${i}" class="px-2.5 py-1 rounded border border-slate-800 bg-slate-950 text-slate-500 flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-slate-600 inline-block"></span> Pump
+                                </span>
+                                <span id="actuator-vib-${i}" class="px-2.5 py-1 rounded border border-slate-800 bg-slate-950 text-slate-500 flex items-center gap-1">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-slate-600 inline-block"></span> Vib
+                                </span>
+                            </div>
+                            
+                            <div class="flex gap-1.5">
+                                <button onclick="triggerSpecificActuator(${i}, 'pump')" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 font-semibold px-2 py-1 rounded text-[11px] transition-all">
+                                    Pump
+                                </button>
+                                <button onclick="triggerSpecificActuator(${i}, 'vib')" class="bg-slate-800 hover:bg-slate-700 active:scale-95 text-slate-300 font-semibold px-2 py-1 rounded text-[11px] transition-all">
+                                    Vib
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                manikinsGrid.innerHTML += cardHTML;
+            }
+
+            // Bind charts
+            for (let i = 1; i <= numManikins; i++) {
+                initChart(i);
+            }
+        }
+
+        // Initialize unique ChartJs instance inside dynamic canvas
+        function initChart(id) {
+            const ctx = document.getElementById(`depth-chart-${id}`).getContext('2d');
+            
+            // Cleanup existing chart reference if dynamic scale is triggered
+            if (manikinsData[id].chart) {
+                manikinsData[id].chart.destroy();
+            }
+
+            manikinsData[id].chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: manikinsData[id].labels,
+                    datasets: [
+                        {
+                            label: 'Max Depth',
+                            data: manikinsData[id].maxDepths,
+                            borderColor: '#3b82f6',
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 1.5,
+                            tension: 0.3,
+                            fill: true,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Min Depth',
+                            data: manikinsData[id].minDepths,
+                            borderColor: '#10b981',
+                            borderWidth: 1,
+                            borderDash: [2, 2],
+                            tension: 0.3,
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        x: {
+                            display: false,
+                        },
+                        y: {
+                            min: 0,
+                            max: 120, // Typical depth up to 120mm range scalable
+                            ticks: {
+                                color: '#475569',
+                                font: { size: 9 },
+                                stepSize: 40
+                            },
+                            grid: {
+                                color: '#1e293b'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Update the metrics & push historical data into Chart timeline
+        function updateManikinUI(id, data) {
+            const card = document.getElementById(`manikin-card-${id}`);
+            if (!card) return; // Ignore updates for out-of-scale components
+
+            // Set Card active borders
+            card.classList.remove('border-slate-800');
+            card.classList.add('border-blue-500/40');
+            setTimeout(() => {
+                card.classList.remove('border-blue-500/40');
+                card.classList.add('border-slate-800');
+            }, 800);
+
+            // Online status indicator
+            const ind = document.getElementById(`m-indicator-${id}`);
+            const text = document.getElementById(`m-statusText-${id}`);
+            ind.className = "h-2 w-2 rounded-full bg-emerald-500";
+            text.textContent = data.packetType === 1 ? "Update Rx" : "Live";
+            text.className = "text-xs text-emerald-400 font-semibold";
+
+            // Timer update
+            const minutes = Math.floor(data.timeSec / 60).toString().padStart(2, '0');
+            const seconds = (data.timeSec % 60).toString().padStart(2, '0');
+            document.getElementById(`m-time-${id}`).textContent = `${minutes}:${seconds}`;
+
+            // Rate update
+            document.getElementById(`m-rate-${id}`).innerHTML = `${data.avgRate} <span class="text-[9px] text-slate-500">bpm</span>`;
+
+            // Touch State Display
+            const touchEl = document.getElementById(`m-touch-${id}`);
+            if (data.touchStatus === 1) {
+                touchEl.className = "inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/20 animate-pulse";
+                touchEl.textContent = "TOUCH";
+            } else {
+                touchEl.className = "inline-block mt-0.5 px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-500";
+                touchEl.textContent = "OFF";
+            }
+
+            // AED 1 Badge Settings
+            const aed1El = document.getElementById(`m-aed1-${i = id}`);
+            if (data.aed1 === 0) {
+                aed1El.className = "text-center py-1 rounded text-[11px] font-semibold bg-slate-800/50 text-slate-500 border border-slate-800";
+                aed1El.textContent = "ABSENT";
+            } else if (data.aed1 === 1) {
+                aed1El.className = "text-center py-1 rounded text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+                aed1El.textContent = "CORRECT";
+            } else {
+                aed1El.className = "text-center py-1 rounded text-[11px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30 animate-shake";
+                aed1El.textContent = "WRONG POS";
+            }
+
+            // AED 2 Badge Settings
+            const aed2El = document.getElementById(`m-aed2-${i = id}`);
+            if (data.aed2 === 0) {
+                aed2El.className = "text-center py-1 rounded text-[11px] font-semibold bg-slate-800/50 text-slate-500 border border-slate-800";
+                aed2El.textContent = "ABSENT";
+            } else if (data.aed2 === 1) {
+                aed2El.className = "text-center py-1 rounded text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30";
+                aed2El.textContent = "CORRECT";
+            } else {
+                aed2El.className = "text-center py-1 rounded text-[11px] font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30";
+                aed2El.textContent = "WRONG POS";
+            }
+
+            // Actuator Pump Display
+            const pAmp = document.getElementById(`actuator-pump-${id}`);
+            if (data.pumpStatus === 1) {
+                pAmp.className = "px-2.5 py-1 rounded border border-blue-500/30 bg-blue-500/10 text-blue-400 flex items-center gap-1 font-semibold";
+                pAmp.querySelector('span').className = "w-1.5 h-1.5 rounded-full bg-blue-400 inline-block animate-ping";
+            } else {
+                pAmp.className = "px-2.5 py-1 rounded border border-slate-800 bg-slate-950 text-slate-500 flex items-center gap-1";
+                pAmp.querySelector('span').className = "w-1.5 h-1.5 rounded-full bg-slate-600 inline-block";
+            }
+
+            // Actuator Vibrator Display
+            const pVib = document.getElementById(`actuator-vib-${id}`);
+            if (data.vibStatus === 1) {
+                pVib.className = "px-2.5 py-1 rounded border border-purple-500/30 bg-purple-500/10 text-purple-400 flex items-center gap-1 font-semibold";
+                pVib.querySelector('span').className = "w-1.5 h-1.5 rounded-full bg-purple-400 inline-block animate-ping";
+            } else {
+                pVib.className = "px-2.5 py-1 rounded border border-slate-800 bg-slate-950 text-slate-500 flex items-center gap-1";
+                pVib.querySelector('span').className = "w-1.5 h-1.5 rounded-full bg-slate-600 inline-block";
+            }
+
+            // Historical Charts Data Feed Integration (5 Depth elements per packet)
+            const durationLimit = parseInt(graphDuration.value);
+            const dataStore = manikinsData[id];
+
+            data.depths.forEach((depth, idx) => {
+                const secondStamp = data.timeSec - 5 + (idx + 1);
+                
+                // Add tracking point only if newer
+                if (secondStamp > (dataStore.labels[dataStore.labels.length - 1] || -1)) {
+                    dataStore.labels.push(secondStamp);
+                    dataStore.minDepths.push(depth.min);
+                    dataStore.maxDepths.push(depth.max);
+                }
+            });
+
+            // Restrict duration array bounds
+            while (dataStore.labels.length > durationLimit) {
+                dataStore.labels.shift();
+                dataStore.minDepths.shift();
+                dataStore.maxDepths.shift();
+            }
+
+            // Redraw Chart updates
+            dataStore.chart.update();
+        }
+
+        // Custom specific triggering option per Card
+        function triggerSpecificActuator(manikinId, actuator) {
+            const pumpVal = actuator === 'pump' ? 1 : 0;
+            const vibVal = actuator === 'vib' ? 1 : 0;
+            // Send Command structure targeting actions
+            sendCommand(1, pumpVal, vibVal);
+            logToConsole(`Target command injected specifically for Unit ${manikinId}: Pump=${pumpVal}, Vib=${vibVal}`, 'system');
+        }
+
+        // Custom Console Log Viewer helper
+        function logToConsole(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            let color = 'text-slate-400';
+            if (type === 'rx') color = 'text-cyan-400';
+            if (type === 'tx') color = 'text-amber-400 font-semibold';
+            if (type === 'system') color = 'text-slate-200 border-l-2 border-slate-500 pl-2';
+            if (type === 'warning') color = 'text-yellow-500';
+            if (type === 'error') color = 'text-rose-500 font-bold';
+
+            const logLine = `<div class="${color}"><span class="text-slate-600">[${timestamp}]</span> ${message}</div>`;
+            rawSerialConsole.innerHTML += logLine;
+            rawSerialConsole.scrollTop = rawSerialConsole.scrollHeight;
+        }
+
+        // Setup Event Listeners
+        connectBtn.addEventListener('click', connectSerial);
+        disconnectBtn.addEventListener('click', disconnectSerial);
+        
+        manikinCountRange.addEventListener('input', (e) => {
+            numManikins = parseInt(e.target.value);
+            manikinCountDisplay.textContent = numManikins;
+            buildManikinCards();
+        });
+
+        graphDuration.addEventListener('change', () => {
+            buildManikinCards(); // Reset timeline structure limits dynamically
+        });
+
+        targetManikin.addEventListener('change', (e) => {
+            const val = e.target.value;
+            activeSelectionTag.textContent = val === 'all' ? 'Selected: All' : `Selected: M0${val}`;
+        });
+
+        // Start / Stop Command hooks
+        globalStartBtn.addEventListener('click', () => {
+            sendCommand(1, globalPump.value, globalVib.value);
+        });
+
+        globalStopBtn.addEventListener('click', () => {
+            sendCommand(0, 0, 0);
+        });
+
+        sendCustomCmdBtn.addEventListener('click', async () => {
+            const cmd = customSerialCmd.value.trim();
+            if (!cmd.startsWith("AA") || !cmd.endsWith("BB")) {
+                alert("Incorrect framing format. Must start with 'AA' and end with 'BB'");
+                return;
+            }
+            if (!writer) {
+                alert("Serial port must be connected.");
+                return;
+            }
+            try {
+                const encoder = new TextEncoder();
+                await writer.write(encoder.encode(cmd));
+                logToConsole(`[Tx Custom Inject]: ${cmd}`, 'tx');
+            } catch (err) {
+                logToConsole(`Failed custom inject: ${err.message}`, 'error');
+            }
+        });
+
+        clearLogsBtn.addEventListener('click', () => {
+            rawSerialConsole.innerHTML = `<div class="text-slate-600">Console logs cleared.</div>`;
+        });
+
+        // Initialize display configuration on launch
+        buildManikinCards();
+
+        // Handle offline checking loop (if packet stops for 10 seconds, flag as Offline)
+        setInterval(() => {
+            const now = Date.now();
+            for (let i = 1; i <= numManikins; i++) {
+                const dataStore = manikinsData[i];
+                if (dataStore && dataStore.lastSeen && (now - dataStore.lastSeen > 8000)) {
+                    const ind = document.getElementById(`m-indicator-${i}`);
+                    const text = document.getElementById(`m-statusText-${i}`);
+                    if (ind && text) {
+                        ind.className = "h-2 w-2 rounded-full bg-slate-600";
+                        text.textContent = "Offline";
+                        text.className = "text-xs text-slate-500";
+                    }
+                }
+            }
+        }, 3000);
+    </script>
+</body>
+</html>
