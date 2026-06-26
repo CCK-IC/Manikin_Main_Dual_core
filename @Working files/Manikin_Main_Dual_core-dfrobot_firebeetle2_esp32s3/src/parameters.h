@@ -1,4 +1,4 @@
-#define ID '1'
+#define ID '2'
 #define UART_BAUD 115200
 #define SCL 2
 #define SDA 1
@@ -36,13 +36,15 @@
 #define AVG_SAMPLES 5
 #define AED_INTERVAL 2 //x 100ms  
 
-#define HEIGHT 89 //idle height of the manikin
+#define HEIGHT 78 //idle height of the manikin
 #define MAX_DEPTH 60 //maximum compression
-#define NOISE 10 //heigth detection noise with no compression
-#define OFFSET -10 //Idle distance = 80mm
-#define MIN_RECOIL_MM 70 
+#define NOISE 15 //heigth detection noise with no compression
+#define OFFSET -15 //Idle distance = 80mm
+#define MIN_RECOIL_MM 68 
 #define CLEAR_PEAK 300 //change in V14
+#define DEBOUNCE_PEAK_MS 1.75 //shortest count possible, change in V16
 #define LOW_DIST 48 //Added in V14
+
 
 #define AED1_DETECT_PIN 38
 #define AED2_DETECT_PIN 8

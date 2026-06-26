@@ -71,7 +71,6 @@ int aed2_state = 0;
 volatile int timer_count = 0;
 int peak_count = 0;
 int cpr_rate = 0;
-int currentTime = 0;
 
 int aed1_absent_count = 0;
 int aed2_absent_count = 0;
@@ -255,63 +254,55 @@ void read_AED2_metal() {
 
 // Task1 
 void task1(void *parameter) {
+  unsigned long lastpeak = 0;
   while (true) {
+    int raw;
     if (task1Flag) {
       task1Flag = false;
-      currentTime = second_counter;
 
       //Read AED via metal detector
       read_AED1_metal();
       read_AED2_metal();
 
       if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(100)) == pdTRUE) { 
-        if (lox.dataReady()) {
+        if (lox.dataReady()) {  
           uint16_t distance = lox.read(false);         
+          raw = distance + (OFFSET);        
           if (distance != 0 && distance < 4000) {      
-            int raw = distance + (OFFSET);        
             // if (!(current_100ms%3)) Serial.printf("raw tof: %i\n",raw);
-            // Serial.printf("raw:%i\tcFlag:%s\tpFlag:%s\n",raw,CPR_flag?"TRUE":"FALSE",peak_flag?"TRUE":"FALSE");
+            // if (!(current_100ms%3)) Serial.printf("raw(%03i)\tcFlag:%s\tpFlag:%s\tsec:%i\n",raw,CPR_flag?"TRUE":"FALSE",peak_flag?"TRUE":"FALSE",second_counter - collection_start);
             //V14 - change the CPR detection method: CPR_flag is triggered when distance is less than LOW_DIST
-            if (raw < LOW_DIST && CPR_flag == false){
+            if (raw < LOW_DIST && CPR_flag == false && (!lastpeak || ((current_time-lastpeak) > DEBOUNCE_PEAK_MS))){
+              // Serial.println("Down!");
               CPR_flag = true;
             }
             //V14 - change the CPR detection method
-
+            
             if (current_min == OUT_OF_RANGE) {
               current_min = raw;
             } else {
               current_min = min(current_min, raw);
             }
             current_max = max(current_max, raw);
-
-            if (raw >= MIN_RECOIL_MM) {
+              
+            if (raw >= MIN_RECOIL_MM /* && CPR_flag == false */) {
               peak_flag = true;
             }
-
-            //V13 codes
-            if (CPR_flag) {
-              CPR_flag = false;
-              if (peak_flag) {
-                cpr_count++;
-              }
-              peak_flag = false;
-            }
-            //V13 codes
-
-            //V14 codes
+              
             if (CPR_flag && peak_flag) {
+              // Serial.println("Up!");
               cpr_count++;
+              lastpeak = current_time;
               CPR_flag = false;
               peak_flag = false;
             }
-            //V14 codes
           }
         }
         xSemaphoreGive(i2cMutex);
       } else {
         Serial.println("I2C mutex timeout in task1!");
       }
-
+          
       if (current_100ms == 1){
         first_touch_detected = read_touch_state();
         if (!first_touch_detected) {
@@ -328,8 +319,9 @@ void task1(void *parameter) {
         }
       }
     }  
-
-    int sec = currentTime - collection_start;
+        
+    int sec = second_counter - collection_start;
+    // if (!(current_100ms%10)) Serial.printf("array[%03i/%03i]curr[%03i/%03i]raw(%03i)\tcFlag:%s\tpFlag:%s\tsec:%i\n",min_dist[current_second],max_dist[current_second],current_min,current_max,raw,CPR_flag?"TRUE":"FALSE",peak_flag?"TRUE":"FALSE",sec);
     if (sec > current_second && current_second < NUM_SECONDS) {  
       min_dist[current_second] = current_min;
       max_dist[current_second] = current_max;
@@ -338,6 +330,12 @@ void task1(void *parameter) {
       current_second = sec;
     } else if (current_second >= NUM_SECONDS) {  
       current_second = 0;  
+      // // Reset data collection per game start
+      collection_start = second_counter;
+      //   current_second = 0;
+      current_min = OUT_OF_RANGE;
+      current_max = 0;
+      // }
     }
     vTaskDelay(pdMS_TO_TICKS(50));
   }
@@ -423,7 +421,7 @@ void build_and_print_message(bool is_immediate) {
   memcpy(myTxData.a, buffer, sizeof(myTxData.a));
   SerialToC3.write((uint8_t*)&myTxData.a, sizeof(myTxData.a)-1);
   
-  // Reset data collection per game start
+  // // Reset data collection per game start
   // if (!is_immediate) {
   //   collection_start = second_counter;
   //   current_second = 0;
@@ -458,8 +456,8 @@ void setup() {
   Serial.begin(115200);
   vTaskDelay(pdMS_TO_TICKS(2000));
 
-  SerialToC3.begin(UART_BAUD, SERIAL_8N1, 44, 43);
   SerialToC3.setRxBufferSize(1024); 
+  SerialToC3.begin(UART_BAUD, SERIAL_8N1, 44, 43);
 
   uint8_t HStryno = dongleHandShake(HStrials);
   // Serial.printf("HS ends #%i/%i",HStryno,HStrials);//handshake
@@ -506,8 +504,6 @@ void setup() {
 
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_pressed, CHANGE);
 
-  collection_start = 0;
-  current_second = 0;
   current_min = OUT_OF_RANGE;
   current_max = 0;
   for (int i = 0; i < NUM_SECONDS; i++) {
@@ -592,13 +588,13 @@ void loop() {
     last_current_time = current_time;
   }
   if (sending_enabled && !warmup_mode && second_counter - lastSend >= 5) { //5Second counter
-  pixels.setPixelColor(0, pixels.Color(0, 0, 150));
-  pixels.show();
-  // Serial.println(second_counter);							   
-  if (current_second < NUM_SECONDS && current_min != OUT_OF_RANGE) {
-    min_dist[current_second] = current_min;
-    max_dist[current_second] = current_max;
-  }
+    pixels.setPixelColor(0, pixels.Color(0, 0, 150));
+    pixels.show();
+    // Serial.println(second_counter);							   
+    if (current_second <= NUM_SECONDS && current_min != OUT_OF_RANGE) {
+      min_dist[current_second] = current_min;
+      max_dist[current_second] = current_max;
+    }
     if (CPR_mode) { //counts in this 5-second period
       cpr_rate = cpr_count; 
       cpr_count =0 ;
