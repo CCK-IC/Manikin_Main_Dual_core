@@ -424,12 +424,12 @@ void build_and_print_message(bool is_immediate) {
   SerialToC3.write((uint8_t*)&myTxData.a, sizeof(myTxData.a)-1);
   
   // Reset data collection per game start
-  if (!is_immediate) {
-    collection_start = second_counter;
-    current_second = 0;
-    current_min = OUT_OF_RANGE;
-    current_max = 0;
-  }
+  // if (!is_immediate) {
+  //   collection_start = second_counter;
+  //   current_second = 0;
+  //   current_min = OUT_OF_RANGE;
+  //   current_max = 0;
+  // }
 }
 
 void IRAM_ATTR button_pressed() {
@@ -441,21 +441,6 @@ void IRAM_ATTR button_pressed() {
       last_button_time1 = now;
       if (currentState == LOW) {
         CPR_mode = !CPR_mode;
-      }
-    }
-  }
-}
-
-// Button ISR for CPR_DET
-void IRAM_ATTR cpr_pressed() {
-  unsigned long now = millis();
-  if (now - last_button_time2 > DEBOUNCE2) {
-    bool currentState = digitalRead(CPR_DET);  // HIGH=idle, LOW=pressed
-    if (currentState != lastState2) {
-      lastState2 = currentState;
-      last_button_time2 = now;
-      if (currentState == LOW) {
-        CPR_flag = true;
       }
     }
   }
