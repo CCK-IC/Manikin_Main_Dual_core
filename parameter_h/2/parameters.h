@@ -40,9 +40,11 @@
 #define MAX_DEPTH 60 //maximum compression
 #define NOISE 15 //heigth detection noise with no compression
 #define OFFSET -15 //Idle distance = 80mm
-#define MIN_RECOIL_MM 70 
+#define MIN_RECOIL_MM 68 
 #define CLEAR_PEAK 300 //change in V14
+#define DEBOUNCE_PEAK_MS 1.75 //shortest count possible, change in V16
 #define LOW_DIST 48 //Added in V14
+
 
 #define AED1_DETECT_PIN 38
 #define AED2_DETECT_PIN 8

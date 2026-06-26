@@ -473,11 +473,6 @@ void setup() {
   pixels.setBrightness(255); 
     
 
-  Serial.println("\nFDC2x1x test");
-  vTaskDelay(pdMS_TO_TICKS(200));
-  bool capOk = capsense.begin(0x3, 0x4, 0x5, false);
-  if (capOk) Serial.println("Sensor OK");  
-  else Serial.println("Sensor Fail");
 
   recalibrate_touch_baseline();
 
@@ -498,6 +493,11 @@ void setup() {
   // timing budget. 
   lox.startContinuous(40);  //ms
 
+  Serial.println("\nFDC2x1x test");
+  vTaskDelay(pdMS_TO_TICKS(200));
+  bool capOk = capsense.begin(0x3, 0x4, 0x5, false);
+  if (capOk) Serial.println("Sensor OK");  
+  else Serial.println("Sensor Fail");
   timer.attachInterruptInterval(TIMER0_INTERVAL_MS * 1000, onTimer);
 
   xTaskCreatePinnedToCore(task1, "ToF & Peak calculation and Cap Sensing", 4096, NULL, 1, NULL, 0);
