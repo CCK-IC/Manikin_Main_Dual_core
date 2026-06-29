@@ -56,7 +56,6 @@ bool CPR_mode = true;
 bool CPR_flag = false;
 bool peak_flag = false;
 
-
 unsigned long current_time = 0;
 unsigned int current_100ms = 0;
 unsigned int second_counter = 0;
@@ -94,7 +93,6 @@ unsigned long collection_start = 0;
 // Rolling average filter for distance 
 int max_depth_sec = 0;
 int min_depth_sec = 0;
-
 int cpr_count =0;
 
 // Button debounce variables
@@ -379,7 +377,6 @@ void build_and_print_message(bool is_immediate) {
   int acc_cpr_count = cpr_count; 
   // Print and send
   Serial.printf("VALID CPR COUNT: %i\tVALID CPR RATE: %i\n",acc_cpr_count,cpr_rate);
-  
   // ********************************
 
 
@@ -437,8 +434,7 @@ void setup() {
   SerialToC3.setRxBufferSize(1024); 
   SerialToC3.begin(UART_BAUD, SERIAL_8N1, 44, 43);
 
-  uint8_t HStryno = dongleHandShake(HStrials);
-  // Serial.printf("HS ends #%i/%i",HStryno,HStrials);//handshake
+  Serial.printf("%i HS trial attemped.\n",dongleHandShake(15));
 
   // Create I2C mutex
   i2cMutex = xSemaphoreCreateMutex();
@@ -449,11 +445,7 @@ void setup() {
 
   pixels.begin();
   pixels.setBrightness(255); 
-    
-
-
-  recalibrate_touch_baseline();
-
+  
   Serial.println("Pololu VL53L1X test");
   if (!lox.init()) {
     Serial.println("Failed to boot VL53L1X");
@@ -470,14 +462,15 @@ void setup() {
   // inter-measurement period). This period should be at least as long as the
   // timing budget. 
   lox.startContinuous(40);  //ms
-
+  
   Serial.println("\nFDC2x1x test");
   vTaskDelay(pdMS_TO_TICKS(200));
   bool capOk = capsense.begin(0x3, 0x4, 0x5, false);
   if (capOk) Serial.println("Sensor OK");  
   else Serial.println("Sensor Fail");
+  recalibrate_touch_baseline();
   timer.attachInterruptInterval(TIMER0_INTERVAL_MS * 1000, onTimer);
-
+  
   xTaskCreatePinnedToCore(task1, "ToF & Peak calculation and Cap Sensing", 4096, NULL, 1, NULL, 0);
 
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_pressed, CHANGE);
