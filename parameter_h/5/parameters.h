@@ -42,7 +42,8 @@
 #define OFFSET -17 //Idle distance = 80mm
 #define MIN_RECOIL_MM 65 
 #define CLEAR_PEAK 300 //change in V14
-#define LOW_DIST 48 //Added in V14
+#define DEBOUNCE_PEAK_MS 175 //shortest count possible, change in V16
+#define LOW_DIST 43 //Added in V14
 
 #define AED1_DETECT_PIN 38
 #define AED2_DETECT_PIN 8

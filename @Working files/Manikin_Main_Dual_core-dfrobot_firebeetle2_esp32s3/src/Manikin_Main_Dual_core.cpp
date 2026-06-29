@@ -6,7 +6,9 @@
 #include <FDC2214.h>
 #include <Adafruit_NeoPixel.h>
 #include "parameters.h"
-
+// DEBUG
+// #define RANGE_DEBUG
+// #define CPR_DEBUG
 // Instances
 HardwareSerial SerialToC3(2);
 FDC2214 capsense(FDC2214_I2C_ADDR_0);
@@ -270,10 +272,14 @@ void task1(void *parameter) {
           raw = distance + (OFFSET);        
           if (distance != 0 && distance < 4000) {      
             // if (!(current_100ms%3)) Serial.printf("raw tof: %i\n",raw);
-            // if (!(current_100ms%3)) Serial.printf("raw(%03i)\tcFlag:%s\tpFlag:%s\tsec:%i\n",raw,CPR_flag?"TRUE":"FALSE",peak_flag?"TRUE":"FALSE",second_counter - collection_start);
+            #ifdef RANGE_DEBUG
+            if (!(current_100ms%3)) Serial.printf("raw(%03i)\tcFlag:%s\tpFlag:%s\tsec:%i\n",raw,CPR_flag?"TRUE":"FALSE",peak_flag?"TRUE":"FALSE",second_counter - collection_start);
+            #endif
             //V14 - change the CPR detection method: CPR_flag is triggered when distance is less than LOW_DIST
-            if (raw < LOW_DIST && CPR_flag == false && (!lastpeak || ((current_time-lastpeak) > DEBOUNCE_PEAK_MS))){
-              // Serial.println("Down!");
+            if (raw < LOW_DIST && CPR_flag == false && (!lastpeak || ((millis()-lastpeak) > DEBOUNCE_PEAK_MS))){
+              #ifdef CPR_DEBUG
+              Serial.printf("Down! %lu ms from last peak.\n",millis()-lastpeak);
+              #endif
               CPR_flag = true;
             }
             //V14 - change the CPR detection method
@@ -290,9 +296,11 @@ void task1(void *parameter) {
             }
               
             if (CPR_flag && peak_flag) {
-              // Serial.println("Up!");
+              #ifdef CPR_DEBUG
+              Serial.println("Up!");
+              #endif
               cpr_count++;
-              lastpeak = current_time;
+              lastpeak = millis();
               CPR_flag = false;
               peak_flag = false;
             }
