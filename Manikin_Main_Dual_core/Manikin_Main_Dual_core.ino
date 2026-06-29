@@ -6,7 +6,9 @@
 #include <FDC2214.h>
 #include <Adafruit_NeoPixel.h>
 #include "parameters.h"
-
+// DEBUG
+// #define RANGE_DEBUG
+// #define CPR_DEBUG
 // Instances
 HardwareSerial SerialToC3(2);
 FDC2214 capsense(FDC2214_I2C_ADDR_0);
@@ -208,15 +210,14 @@ bool read_touch_state() {
   return touch;
 }
 
-// ==================== AED1 金屬偵測 (連續2次 debounce) ====================
+// ==================== AED 金屬偵測 (連續2次 debounce) ====================
 // Active HIGH
-void read_AED1_metal() {
-  bool detected = (digitalRead(AED1_DETECT_PIN) == HIGH);
+void read_AED_metal(uint8_t pin) {
+  bool detected = (digitalRead(pin) == HIGH);
 
   if (detected) {
     aed1_confirm_count++;         
     aed1_absent_count = 0;          
-
     if (aed1_confirm_count >= AED_DEBOUNCE_THRESHOLD) {
       aed1_state = 1;
     }
@@ -231,27 +232,6 @@ void read_AED1_metal() {
   }
 }
 
-void read_AED2_metal() {
-  bool detected = (digitalRead(AED2_DETECT_PIN) == HIGH);
-
-  if (detected) {
-    aed2_confirm_count++;           
-    aed2_absent_count = 0;          
-
-    if (aed2_confirm_count >= AED_DEBOUNCE_THRESHOLD) {
-      aed2_state = 1;
-    }
-  } 
-  else {
-    aed2_confirm_count = 0;        
-    aed2_absent_count++;          
-
-    if (aed2_absent_count >= AED_DEBOUNCE_THRESHOLD) {
-      aed2_state = 0;
-    }
-  }
-}
-
 // Task1 
 void task1(void *parameter) {
   unsigned long lastpeak = 0;
@@ -261,19 +241,22 @@ void task1(void *parameter) {
       task1Flag = false;
 
       //Read AED via metal detector
-      read_AED1_metal();
-      read_AED2_metal();
+      read_AED_metal(AED1_DETECT_PIN);
+      read_AED_metal(AED2_DETECT_PIN);
 
       if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(100)) == pdTRUE) { 
         if (lox.dataReady()) {  
           uint16_t distance = lox.read(false);         
           raw = distance + (OFFSET);        
           if (distance != 0 && distance < 4000) {      
-            // if (!(current_100ms%3)) Serial.printf("raw tof: %i\n",raw);
-            // if (!(current_100ms%3)) Serial.printf("raw(%03i)\tcFlag:%s\tpFlag:%s\tsec:%i\n",raw,CPR_flag?"TRUE":"FALSE",peak_flag?"TRUE":"FALSE",second_counter - collection_start);
+            #ifdef RANGE_DEBUG
+            if (!(current_100ms%3)) Serial.printf("raw(%03i)\tcFlag:%s\tpFlag:%s\tsec:%i\n",raw,CPR_flag?"TRUE":"FALSE",peak_flag?"TRUE":"FALSE",second_counter - collection_start);
+            #endif
             //V14 - change the CPR detection method: CPR_flag is triggered when distance is less than LOW_DIST
-            if (raw < LOW_DIST && CPR_flag == false && (!lastpeak || ((current_time-lastpeak) > DEBOUNCE_PEAK_MS))){
-              // Serial.println("Down!");
+            if (raw < LOW_DIST && CPR_flag == false && (!lastpeak || ((millis()-lastpeak) > DEBOUNCE_PEAK_MS))){
+              #ifdef CPR_DEBUG
+              Serial.printf("Down! %lu ms from last peak.\n",millis()-lastpeak);
+              #endif
               CPR_flag = true;
             }
             //V14 - change the CPR detection method
@@ -290,9 +273,11 @@ void task1(void *parameter) {
             }
               
             if (CPR_flag && peak_flag) {
-              // Serial.println("Up!");
+              #ifdef CPR_DEBUG
+              Serial.println("Up!");
+              #endif
               cpr_count++;
-              lastpeak = current_time;
+              lastpeak = millis();
               CPR_flag = false;
               peak_flag = false;
             }
@@ -421,13 +406,6 @@ void build_and_print_message(bool is_immediate) {
   memcpy(myTxData.a, buffer, sizeof(myTxData.a));
   SerialToC3.write((uint8_t*)&myTxData.a, sizeof(myTxData.a)-1);
   
-  // // Reset data collection per game start
-  // if (!is_immediate) {
-  //   collection_start = second_counter;
-  //   current_second = 0;
-  //   current_min = OUT_OF_RANGE;
-  //   current_max = 0;
-  // }
 }
 
 void IRAM_ATTR button_pressed() {
@@ -544,9 +522,7 @@ void loop() {
 
           if (control_char == '1') {
             warmup_mode = false;
-            if (!sending_enabled) {
-              timer_count = 0;  
-            }
+            if (!sending_enabled) timer_count = 0;  
             sending_enabled = true;
             Serial.print("Game started, sending_enabled: "); Serial.println((int)sending_enabled);
             build_and_print_message(true);
