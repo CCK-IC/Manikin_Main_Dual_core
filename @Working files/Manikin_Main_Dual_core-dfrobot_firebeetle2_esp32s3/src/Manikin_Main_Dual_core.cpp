@@ -157,7 +157,6 @@ void RGB_mode(){
 // Cap Sensor Routines
 unsigned long capa[CHAN_COUNT];
 unsigned long cal_cap[CHAN_COUNT];
-bool touch_baseline_ready = false;
 
 void read_cap(){
   if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(100)) == pdTRUE) {
@@ -181,7 +180,6 @@ void recalibrate_touch_baseline() {
     Serial.print("Calibrated value (CH");Serial.print(i);Serial.print("): ");
     Serial.println(cal_cap[i]);
   }
-  touch_baseline_ready = true;
   Serial.println("Calibration Finished!!");
 }
 
@@ -433,7 +431,6 @@ void setup() {
   if (capOk) Serial.println("Sensor OK");  
   else Serial.println("Sensor Fail");
   recalibrate_touch_baseline();
-
   timer.attachInterruptInterval(TIMER0_INTERVAL_MS * 1000, onTimer);
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_pressed, CHANGE);
   
@@ -527,6 +524,7 @@ void loop() {
     bool state_changed = (current_touch_state != prev_touch_state) ||
                          (aed1_state != prev_aed1_state) ||
                          (aed2_state != prev_aed2_state);
+
     if (state_changed) {
       pixels.setPixelColor(0, pixels.Color(0, 0, 150));
       pixels.show();
