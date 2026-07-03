@@ -58,12 +58,9 @@ unsigned int second_counter = 0;
 bool task1Flag = false;
 bool vibrate_timer = false;
 bool pump_timer = false;
-bool aed_timer = false;
 
 int pump_state = 0;
 int vibrator_state = 0;
-int aed1_state = 0; 
-int aed2_state = 0; 
 
 volatile int timer_count = 0;
 int cpr_rate = 0;
@@ -95,10 +92,21 @@ bool lastState1 = HIGH;
 
 // Previous states for change detection
 int prev_touch_state = 0;
-int prev_aed1_state = 0;
-int prev_aed2_state = 0;
-bool prev_state1 = false; //metal detector state
-bool prev_state2 = false; //metal detector state
+
+typedef struct aed_t{
+    uint8_t state = 0;
+    uint8_t prev_state = 0;
+    uint8_t absent_count = 0;
+    uint8_t confirm_count = 0;  
+}aed_t;
+aed_t aed1;
+aed_t aed2;
+// int aed1_state = 0; 
+// int aed2_state = 0; 
+// int prev_aed1_state = 0;
+// int prev_aed2_state = 0;
+// bool prev_state1 = false; //metal detector state
+// bool prev_state2 = false; //metal detector state
 
 // New variables for UART command handling
 int prev_pump_state = 0;
@@ -123,8 +131,6 @@ bool IRAM_ATTR onTimer(void *timerNo) {
   if (current_100ms % VIB_INTERVAL == 0) vibrate_timer = true;
 
   if (current_100ms % PUMP_INTERVAL == 0) pump_timer = true;
-
-  if (current_100ms % AED_INTERVAL == 0) aed_timer = true;
 
   if (current_100ms % 10 == 0) {
     second_counter++;
@@ -194,17 +200,20 @@ bool read_touch_state() {
 
 // ==================== AED 金屬偵測 (連續2次 debounce) ====================
 // Active HIGH
-void read_AED_metal(uint8_t pin) {
+void read_AED_metal(aed_t* aed ,uint8_t pin) {
   bool detected = (digitalRead(pin) == HIGH);
   if (detected) {
-    aed1_confirm_count++;         
-    aed1_absent_count = 0;          
-    if (aed1_confirm_count >= AED_DEBOUNCE_THRESHOLD) aed1_state = 1;
+    // Serial.printf("AED@%i!\n",pin);
+    aed->confirm_count++;         
+    aed->absent_count = 0;          
+    if (aed->confirm_count >= AED_DEBOUNCE_THRESHOLD) aed->state = 1;
+    // Serial.printf("AED@%i=%i!\n",pin,aed->state);
+    
   } 
   else {
-    aed1_confirm_count = 0;         
-    aed1_absent_count++;          
-    if (aed1_absent_count >= AED_DEBOUNCE_THRESHOLD) aed1_state = 0;
+    aed->confirm_count = 0;         
+    aed->absent_count++;          
+    if (aed->absent_count >= AED_DEBOUNCE_THRESHOLD) aed->state = 0;
   }
 }
 
@@ -217,44 +226,44 @@ void task1(void *parameter) {
       task1Flag = false;
 
       //Read AED via metal detector
-      read_AED_metal(AED1_DETECT_PIN);
-      read_AED_metal(AED2_DETECT_PIN);
+      read_AED_metal(&aed1,AED1_DETECT_PIN);
+      read_AED_metal(&aed2,AED2_DETECT_PIN);
 
-      if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(100)) == pdTRUE) { 
-        if (lox.dataReady()) {  
-          uint16_t distance = lox.read(false);         
-          raw = distance + (OFFSET);        
-          if (distance != 0 && distance < 4000) {      
-            #ifdef RANGE_DEBUG
-            if (!(current_100ms%3)) Serial.printf("raw(%03i)\tcFlag:%s\tpFlag:%s\tsec:%i\n",raw,CPR_flag?"TRUE":"FALSE",peak_flag?"TRUE":"FALSE",second_counter - collection_start);
+      // if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(100)) == pdTRUE) { 
+      if (lox.dataReady()) {  
+        uint16_t distance = lox.read(false);         
+        raw = distance + (OFFSET);        
+        if (distance != 0 && distance < 4000) {      
+          #ifdef RANGE_DEBUG
+          if (!(current_100ms%3)) Serial.printf("raw(%03i)\tcFlag:%s\tpFlag:%s\tsec:%i\n",raw,CPR_flag?"TRUE":"FALSE",peak_flag?"TRUE":"FALSE",second_counter - collection_start);
+          #endif
+          //V14 - change the CPR detection method: CPR_flag is triggered when distance is less than LOW_DIST
+          if (raw < LOW_DIST && CPR_flag == false && (!lastpeak || ((millis()-lastpeak) > DEBOUNCE_PEAK_MS))){
+            #ifdef CPR_DEBUG
+            Serial.printf("Down! %lu ms from last peak.\n",millis()-lastpeak);
             #endif
-            //V14 - change the CPR detection method: CPR_flag is triggered when distance is less than LOW_DIST
-            if (raw < LOW_DIST && CPR_flag == false && (!lastpeak || ((millis()-lastpeak) > DEBOUNCE_PEAK_MS))){
-              #ifdef CPR_DEBUG
-              Serial.printf("Down! %lu ms from last peak.\n",millis()-lastpeak);
-              #endif
-              CPR_flag = true;
-            }
-            //V14 - change the CPR detection method
+            CPR_flag = true;
+          }
+          //V14 - change the CPR detection method
+          
+          if (current_min == OUT_OF_RANGE) current_min = raw;
+          else current_min = min(current_min, raw);
+          current_max = max(current_max, raw);
             
-            if (current_min == OUT_OF_RANGE) current_min = raw;
-            else current_min = min(current_min, raw);
-            current_max = max(current_max, raw);
-              
-            if (raw >= MIN_RECOIL_MM /* && CPR_flag == false */) peak_flag = true;
-            if (CPR_flag && peak_flag) {
-              #ifdef CPR_DEBUG
-              Serial.println("Up!");
-              #endif
-              cpr_count++;
-              lastpeak = millis();
-              CPR_flag = false;
-              peak_flag = false;
-            }
+          if (raw >= MIN_RECOIL_MM /* && CPR_flag == false */) peak_flag = true;
+          if (CPR_flag && peak_flag) {
+            #ifdef CPR_DEBUG
+            Serial.println("Up!");
+            #endif
+            cpr_count++;
+            lastpeak = millis();
+            CPR_flag = false;
+            peak_flag = false;
           }
         }
-        xSemaphoreGive(i2cMutex);
-      } else Serial.println("I2C mutex timeout in task1!");
+      }
+      //   xSemaphoreGive(i2cMutex);
+      // } else Serial.println("I2C mutex timeout in task1!");
 
       if (current_100ms == 1){
         first_touch_detected = read_touch_state();
@@ -354,8 +363,8 @@ void build_and_print_message(bool is_immediate) {
   // States
   int touch_state = debounced_touch_detected ? 1 : 0;
   buffer[40] = '0' + touch_state;
-  buffer[41] = '0' + aed1_state;
-  buffer[42] = '0' + aed2_state;
+  buffer[41] = '0' + aed1.state;
+  buffer[42] = '0' + aed2.state;
   buffer[43] = '0' + pump_state;      
   buffer[44] = '0' + vibrator_state;  
   buffer[47] = '\0';
@@ -389,9 +398,9 @@ void setup() {
   Wire.begin(SDA, SCL);
   Wire.setClock(I2C_SPEED);
 
-  vTaskDelay(pdMS_TO_TICKS(3000));
+  vTaskDelay(pdMS_TO_TICKS(1000));
   Serial.begin(115200);
-  vTaskDelay(pdMS_TO_TICKS(2000));
+  vTaskDelay(pdMS_TO_TICKS(500));
 
   SerialToC3.setRxBufferSize(1024); 
   SerialToC3.begin(UART_BAUD, SERIAL_8N1, 44, 43);
@@ -522,8 +531,10 @@ void loop() {
     
     int current_touch_state = debounced_touch_detected ? 1 : 0;
     bool state_changed = (current_touch_state != prev_touch_state) ||
-                         (aed1_state != prev_aed1_state) ||
-                         (aed2_state != prev_aed2_state);
+                         (aed1.state != aed1.prev_state) ||
+                         (aed2.state != aed2.prev_state);
+                        //  (aed1_state != prev_aed1_state) ||
+                        //  (aed2_state != prev_aed2_state);
 
     if (state_changed) {
       pixels.setPixelColor(0, pixels.Color(0, 0, 150));
@@ -536,8 +547,8 @@ void loop() {
       if (sending_enabled) build_and_print_message(true);
 
       prev_touch_state = current_touch_state;
-      prev_aed1_state = aed1_state;
-      prev_aed2_state = aed2_state;
+      aed1.prev_state = aed1.state;
+      aed2.prev_state = aed2.state;
       RGB_mode();												 			  
     }
   
@@ -546,27 +557,6 @@ void loop() {
     build_and_print_message(false);
     lastSend = second_counter;
     RGB_mode();	
-  }
-
-  if (aed_timer) {
-    bool state1 = (digitalRead(AED1_DETECT_PIN) == HIGH); //active HIGH
-    bool state2 = (digitalRead(AED2_DETECT_PIN) == HIGH); //active HIGH
-    if (state1 == true ){
-      if (prev_state1 == true) aed1_state = 1; // valid detection for two consecutive detections
-      prev_state1 = true; //set it to true if it is not
-    }
-    else {
-      if (prev_state1 == false) aed1_state = 0; // valid not_detected for two consecutive not_detections
-      prev_state1 = false; //set it to false if it is not
-    }
-    if (state2 == true){
-      if (prev_state2 == true) aed2_state = 1; // valid detection for two consecutive detections
-      prev_state2 = true; //set it to true if it is not
-    }
-    else {
-      if (prev_state2 == false) aed2_state = 0; // valid not_detected for two consecutive not_detections
-      prev_state2 = false; //set it to false if it is not
-    }
   }
 
   if (vibrate_timer) {
