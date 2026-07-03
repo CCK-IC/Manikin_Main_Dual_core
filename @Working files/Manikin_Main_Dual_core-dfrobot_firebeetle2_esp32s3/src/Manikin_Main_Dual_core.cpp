@@ -29,8 +29,7 @@ uint8_t dongleHandShake(uint8_t trail = 50){
     else {delay(500);continue;}
     msg.trim();
     if (strcmp(msg.c_str(),"**#**")==0) break;
-    // vTaskDelay(pdMS_TO_TICKS(100));
-    delay(250);
+    vTaskDelay(pdMS_TO_TICKS(250));
   }
   if (!(i <= trail))Serial.println("Failed to handshake");
   return i;
@@ -47,11 +46,8 @@ struct_message myRxData;
 // Variables
 unsigned long lastSend = 0;
 unsigned long last_current_time = 0;
-unsigned int time_stamp = 0;
 bool first_touch_detected = false;
 bool debounced_touch_detected = false;
-bool AED_A_detected = false;
-bool AED_B_detected = false;
 bool CPR_mode = true;
 bool CPR_flag = false;
 bool peak_flag = false;
@@ -70,12 +66,10 @@ int aed1_state = 0;
 int aed2_state = 0; 
 
 volatile int timer_count = 0;
-int peak_count = 0;
 int cpr_rate = 0;
 
 int aed1_absent_count = 0;
 int aed2_absent_count = 0;
-const int ABSENT_THRESHOLD = 3;  
 int aed1_confirm_count = 0;  
 int aed2_confirm_count = 0; 
 
@@ -97,9 +91,7 @@ int cpr_count =0;
 
 // Button debounce variables
 unsigned long int last_button_time1 = 0;
-unsigned long int last_button_time2 = 0;
 bool lastState1 = HIGH;
-bool lastState2 = HIGH;
 
 // Previous states for change detection
 int prev_touch_state = 0;
@@ -174,9 +166,7 @@ void read_cap(){
       vTaskDelay(pdMS_TO_TICKS(10));
     }
     xSemaphoreGive(i2cMutex);
-  } else {
-    Serial.println("I2C mutex timeout in read_cap!");
-  }
+  } else Serial.println("I2C mutex timeout in read_cap!");
 }
 
 void recalibrate_touch_baseline() {
@@ -184,9 +174,7 @@ void recalibrate_touch_baseline() {
   for (int j = 0; j < BASELINE_SAMPLES; j++){
     read_cap();
     vTaskDelay(pdMS_TO_TICKS(500));
-    for (int i = 0; i < CHAN_COUNT; i++){ 
-      cal_cap[i] += capa[i];
-    }
+    for (int i = 0; i < CHAN_COUNT; i++) cal_cap[i] += capa[i];
   }
   for (int i = 0; i < CHAN_COUNT; i++){ 
     cal_cap[i] = cal_cap[i]/BASELINE_SAMPLES;
@@ -201,9 +189,7 @@ bool read_touch_state() {
   bool touch = false;
   read_cap();
   for (int i = 0; i < CHAN_COUNT; i++){ 
-    if (cal_cap[i] > (capa[i] + TOUCH_DELTA_THRESHOLD)) {
-      touch = true;
-    }
+    if (cal_cap[i] > (capa[i] + TOUCH_DELTA_THRESHOLD)) touch = true;
   }
   return touch;
 }
@@ -212,21 +198,15 @@ bool read_touch_state() {
 // Active HIGH
 void read_AED_metal(uint8_t pin) {
   bool detected = (digitalRead(pin) == HIGH);
-
   if (detected) {
     aed1_confirm_count++;         
     aed1_absent_count = 0;          
-    if (aed1_confirm_count >= AED_DEBOUNCE_THRESHOLD) {
-      aed1_state = 1;
-    }
+    if (aed1_confirm_count >= AED_DEBOUNCE_THRESHOLD) aed1_state = 1;
   } 
   else {
     aed1_confirm_count = 0;         
     aed1_absent_count++;          
-
-    if (aed1_absent_count >= AED_DEBOUNCE_THRESHOLD) {
-      aed1_state = 0;
-    }
+    if (aed1_absent_count >= AED_DEBOUNCE_THRESHOLD) aed1_state = 0;
   }
 }
 
@@ -259,17 +239,11 @@ void task1(void *parameter) {
             }
             //V14 - change the CPR detection method
             
-            if (current_min == OUT_OF_RANGE) {
-              current_min = raw;
-            } else {
-              current_min = min(current_min, raw);
-            }
+            if (current_min == OUT_OF_RANGE) current_min = raw;
+            else current_min = min(current_min, raw);
             current_max = max(current_max, raw);
               
-            if (raw >= MIN_RECOIL_MM /* && CPR_flag == false */) {
-              peak_flag = true;
-            }
-              
+            if (raw >= MIN_RECOIL_MM /* && CPR_flag == false */) peak_flag = true;
             if (CPR_flag && peak_flag) {
               #ifdef CPR_DEBUG
               Serial.println("Up!");
@@ -282,10 +256,8 @@ void task1(void *parameter) {
           }
         }
         xSemaphoreGive(i2cMutex);
-      } else {
-        Serial.println("I2C mutex timeout in task1!");
-      }
-          
+      } else Serial.println("I2C mutex timeout in task1!");
+
       if (current_100ms == 1){
         first_touch_detected = read_touch_state();
         if (!first_touch_detected) {
@@ -294,12 +266,8 @@ void task1(void *parameter) {
       }
       if (current_100ms == 4 && first_touch_detected){
         debounced_touch_detected = read_touch_state();
-        if (debounced_touch_detected) {
-          Serial.println("Touch Detected!");
-        }
-        else {
-          first_touch_detected = false;
-        }
+        if (debounced_touch_detected) Serial.println("Touch Detected!");
+        else first_touch_detected = false;
       }
     }  
         
@@ -340,9 +308,8 @@ void build_and_print_message(bool is_immediate) {
 
   char time_str[4];
   sprintf(time_str, "%03d", min(999, (int)timer_count));
-  buffer[4] = time_str[0];
-  buffer[5] = time_str[1];
-  buffer[6] = time_str[2];
+  strncpy((buffer+4),time_str,3);
+  // buffer[4] = time_str[0]; buffer[5] = time_str[1]; buffer[6] = time_str[2];
 
   // Min/Max per second 
   for (int i = 0; i < NUM_SECONDS; i++) {
@@ -364,11 +331,13 @@ void build_and_print_message(bool is_immediate) {
     if ( min_depth_sec <0)  min_depth_sec = 0;
     if (max_depth_sec > MAX_DEPTH) max_depth_sec = 60; //limit the max compression depth to 60mm
     char str[4];
-    sprintf(str, "%03d", min_depth_sec); //changed to min_depth_sec
     int pos = 7 + i * 6;
-    buffer[pos] = str[0]; buffer[pos+1] = str[1]; buffer[pos+2] = str[2];
+    sprintf(str, "%03d", min_depth_sec); //changed to min_depth_sec
+    strncpy((buffer+pos),str,3);
+    // buffer[pos] = str[0]; buffer[pos+1] = str[1]; buffer[pos+2] = str[2];
     sprintf(str, "%03d", max_depth_sec); //changed to max_depth_sec
-    buffer[pos+3] = str[0]; buffer[pos+4] = str[1]; buffer[pos+5] = str[2];
+    strncpy((buffer+pos+3),str,3);
+    // buffer[pos+3] = str[0]; buffer[pos+4] = str[1]; buffer[pos+5] = str[2];
   }
   
   // CPR mode: True - report the counts in this 5-sec period; False - report the accummulated CPR counts so far
@@ -379,13 +348,10 @@ void build_and_print_message(bool is_immediate) {
   Serial.printf("VALID CPR COUNT: %i\tVALID CPR RATE: %i\n",acc_cpr_count,cpr_rate);
   // ********************************
 
-
-
   char rate_str[4];
   sprintf(rate_str, "%03d", min(999, cpr_rate));
-  buffer[37] = rate_str[0];
-  buffer[38] = rate_str[1];
-  buffer[39] = rate_str[2];
+  strncpy((buffer+37),rate_str,3);
+  // buffer[37] = rate_str[0]; buffer[38] = rate_str[1]; buffer[39] = rate_str[2];
 
   // States
   int touch_state = debounced_touch_detected ? 1 : 0;
@@ -412,9 +378,7 @@ void IRAM_ATTR button_pressed() {
     if (currentState != lastState1) {
       lastState1 = currentState;
       last_button_time1 = now;
-      if (currentState == LOW) {
-        CPR_mode = !CPR_mode;
-      }
+      if (currentState == LOW) CPR_mode = !CPR_mode;
     }
   }
 }
@@ -469,11 +433,11 @@ void setup() {
   if (capOk) Serial.println("Sensor OK");  
   else Serial.println("Sensor Fail");
   recalibrate_touch_baseline();
+
   timer.attachInterruptInterval(TIMER0_INTERVAL_MS * 1000, onTimer);
+  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_pressed, CHANGE);
   
   xTaskCreatePinnedToCore(task1, "ToF & Peak calculation and Cap Sensing", 4096, NULL, 1, NULL, 0);
-
-  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_pressed, CHANGE);
 
   current_min = OUT_OF_RANGE;
   current_max = 0;
@@ -481,7 +445,6 @@ void setup() {
     min_dist[i] = OUT_OF_RANGE;
     max_dist[i] = 0;
   }
-
 
   // RGB indicator: 
   RGB_mode();		
@@ -507,9 +470,8 @@ void loop() {
       Serial.print("Extracted cmds: "); Serial.println(cmds);
 
       if (cmds.length() == 3) {
-        if (cmds == "222" && warmup_mode) {
-          build_and_print_message(true);  // 傳 type1，如你的需求
-        } else {
+        if (cmds == "222" && warmup_mode) build_and_print_message(true);  // 傳 type1，如你的需求
+        else {
           char control_char = cmds.charAt(0);
           Serial.print("Control char: "); Serial.println(control_char);
 
@@ -531,9 +493,7 @@ void loop() {
             vibrator_state = cmds.charAt(2) - '0';
 
             if (pump_state != prev_pump_state || vibrator_state != prev_vibrator_state) {
-              if (sending_enabled) {
-                build_and_print_message(true);
-              }
+              if (sending_enabled) build_and_print_message(true);
               prev_pump_state = pump_state;
               prev_vibrator_state = vibrator_state;
             }
@@ -541,9 +501,7 @@ void loop() {
         }
       RGB_mode();
       }
-    } else {
-      Serial.println("Invalid message received from C3");
-    }
+    } else Serial.println("Invalid message received from C3");
   }
 
   int current_touch_state = debounced_touch_detected ? 1 : 0;
@@ -567,9 +525,8 @@ void loop() {
     if (CPR_mode) { //counts in this 5-second period
       cpr_rate = cpr_count; 
       cpr_count =0 ;
-    } else { //accumulated counts so far
-      cpr_rate = cpr_count;
-    }
+    } else cpr_rate = cpr_count;//accumulated counts so far
+
     if (state_changed) {
       pixels.setPixelColor(0, pixels.Color(0, 0, 150));
       pixels.show();
@@ -578,9 +535,8 @@ void loop() {
         min_dist[current_second] = current_min;
         max_dist[current_second] = current_max;
       }
-      if (sending_enabled) {  
-        build_and_print_message(true);
-      }
+      if (sending_enabled) build_and_print_message(true);
+
       prev_touch_state = current_touch_state;
       prev_aed1_state = aed1_state;
       prev_aed2_state = aed2_state;
