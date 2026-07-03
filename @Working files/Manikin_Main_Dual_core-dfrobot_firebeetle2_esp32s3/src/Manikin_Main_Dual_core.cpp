@@ -527,6 +527,7 @@ void loop() {
     bool state_changed = (current_touch_state != prev_touch_state) ||
                          (aed1_state != prev_aed1_state) ||
                          (aed2_state != prev_aed2_state);
+
     if (state_changed) {
       pixels.setPixelColor(0, pixels.Color(0, 0, 150));
       pixels.show();
