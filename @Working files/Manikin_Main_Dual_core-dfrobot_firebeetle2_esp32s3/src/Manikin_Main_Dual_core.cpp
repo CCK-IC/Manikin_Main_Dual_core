@@ -24,12 +24,12 @@ uint8_t dongleHandShake(uint8_t trail = 50){
   uint8_t msglen = 0;
   for (i = 0; i <trail; i++){//retry for default 50times
     SerialToC3.printf("**%c**",ID);
-    msglen = Serial1.available();
+    msglen = SerialToC3.available();
     if (msglen) msg = SerialToC3.readStringUntil('\n');
-    else {delay(500);continue;}
+    else {delay(50);continue;}
     msg.trim();
-    if (strcmp(msg.c_str(),"**#**")==0) break;
-    vTaskDelay(pdMS_TO_TICKS(250));
+    if (strcmp(msg.c_str(),"**#**")==0) {SerialToC3.flush();break;}
+    vTaskDelay(pdMS_TO_TICKS(50));
   }
   if (!(i <= trail))Serial.println("Failed to handshake");
   return i;
@@ -380,14 +380,14 @@ void setup() {
   Wire.begin(SDA, SCL);
   Wire.setClock(I2C_SPEED);
 
-  vTaskDelay(pdMS_TO_TICKS(1000));
+  vTaskDelay(pdMS_TO_TICKS(1500));
   Serial.begin(115200);
-  vTaskDelay(pdMS_TO_TICKS(500));
+  vTaskDelay(pdMS_TO_TICKS(2000));
 
   SerialToC3.setRxBufferSize(1024); 
   SerialToC3.begin(UART_BAUD, SERIAL_8N1, 44, 43);
 
-  Serial.printf("%i HS trial attemped.\n",dongleHandShake(15));
+  Serial.printf("%i HS trial attemped.\n",dongleHandShake(HStrials));
 
   // Create I2C mutex
   i2cMutex = xSemaphoreCreateMutex();
