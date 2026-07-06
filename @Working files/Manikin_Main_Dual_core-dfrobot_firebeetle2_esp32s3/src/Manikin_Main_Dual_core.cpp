@@ -101,12 +101,6 @@ typedef struct aed_t{
 }aed_t;
 aed_t aed1;
 aed_t aed2;
-// int aed1_state = 0; 
-// int aed2_state = 0; 
-// int prev_aed1_state = 0;
-// int prev_aed2_state = 0;
-// bool prev_state1 = false; //metal detector state
-// bool prev_state2 = false; //metal detector state
 
 // New variables for UART command handling
 int prev_pump_state = 0;
@@ -203,12 +197,9 @@ bool read_touch_state() {
 void read_AED_metal(aed_t* aed ,uint8_t pin) {
   bool detected = (digitalRead(pin) == HIGH);
   if (detected) {
-    // Serial.printf("AED@%i!\n",pin);
     aed->confirm_count++;         
     aed->absent_count = 0;          
     if (aed->confirm_count >= AED_DEBOUNCE_THRESHOLD) aed->state = 1;
-    // Serial.printf("AED@%i=%i!\n",pin,aed->state);
-    
   } 
   else {
     aed->confirm_count = 0;         
@@ -229,47 +220,45 @@ void task1(void *parameter) {
       read_AED_metal(&aed1,AED1_DETECT_PIN);
       read_AED_metal(&aed2,AED2_DETECT_PIN);
 
-      // if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(100)) == pdTRUE) { 
-      if (lox.dataReady()) {  
-        uint16_t distance = lox.read(false);         
-        raw = distance + (OFFSET);        
-        if (distance != 0 && distance < 4000) {      
-          #ifdef RANGE_DEBUG
-          if (!(current_100ms%3)) Serial.printf("raw(%03i)\tcFlag:%s\tpFlag:%s\tsec:%i\n",raw,CPR_flag?"TRUE":"FALSE",peak_flag?"TRUE":"FALSE",second_counter - collection_start);
-          #endif
-          //V14 - change the CPR detection method: CPR_flag is triggered when distance is less than LOW_DIST
-          if (raw < LOW_DIST && CPR_flag == false && (!lastpeak || ((millis()-lastpeak) > DEBOUNCE_PEAK_MS))){
-            #ifdef CPR_DEBUG
-            Serial.printf("Down! %lu ms from last peak.\n",millis()-lastpeak);
+      if (xSemaphoreTake(i2cMutex, pdMS_TO_TICKS(100)) == pdTRUE) { 
+        if (lox.dataReady()) {  
+          uint16_t distance = lox.read(false);         
+          raw = distance + (OFFSET);        
+          if (distance != 0 && distance < 4000) {      
+            #ifdef RANGE_DEBUG
+            if (!(current_100ms%3)) Serial.printf("raw(%03i)\tcFlag:%s\tpFlag:%s\tsec:%i\n",raw,CPR_flag?"TRUE":"FALSE",peak_flag?"TRUE":"FALSE",second_counter - collection_start);
             #endif
-            CPR_flag = true;
-          }
-          //V14 - change the CPR detection method
-          
-          if (current_min == OUT_OF_RANGE) current_min = raw;
-          else current_min = min(current_min, raw);
-          current_max = max(current_max, raw);
+            //V14 - change the CPR detection method: CPR_flag is triggered when distance is less than LOW_DIST
+            if (raw < LOW_DIST && CPR_flag == false && (!lastpeak || ((millis()-lastpeak) > DEBOUNCE_PEAK_MS))){
+              #ifdef CPR_DEBUG
+              Serial.printf("Down! %lu ms from last peak.\n",millis()-lastpeak);
+              #endif
+              CPR_flag = true;
+            }
+            //V14 - change the CPR detection method
             
-          if (raw >= MIN_RECOIL_MM /* && CPR_flag == false */) peak_flag = true;
-          if (CPR_flag && peak_flag) {
-            #ifdef CPR_DEBUG
-            Serial.println("Up!");
-            #endif
-            cpr_count++;
-            lastpeak = millis();
-            CPR_flag = false;
-            peak_flag = false;
+            if (current_min == OUT_OF_RANGE) current_min = raw;
+            else current_min = min(current_min, raw);
+            current_max = max(current_max, raw);
+              
+            if (raw >= MIN_RECOIL_MM /* && CPR_flag == false */) peak_flag = true;
+            if (CPR_flag && peak_flag) {
+              #ifdef CPR_DEBUG
+              Serial.println("Up!");
+              #endif
+              cpr_count++;
+              lastpeak = millis();
+              CPR_flag = false;
+              peak_flag = false;
+            }
           }
         }
-      }
-      //   xSemaphoreGive(i2cMutex);
-      // } else Serial.println("I2C mutex timeout in task1!");
+        xSemaphoreGive(i2cMutex);
+      } else Serial.println("I2C mutex timeout in task1!");
 
       if (current_100ms == 1){
         first_touch_detected = read_touch_state();
-        if (!first_touch_detected) {
-          debounced_touch_detected = false;
-        }
+        if (!first_touch_detected) debounced_touch_detected = false;
       }
       if (current_100ms == 4 && first_touch_detected){
         debounced_touch_detected = read_touch_state();
@@ -279,7 +268,6 @@ void task1(void *parameter) {
     }  
         
     int sec = second_counter - collection_start;
-    // if (!(current_100ms%10)) Serial.printf("array[%03i/%03i]curr[%03i/%03i]raw(%03i)\tcFlag:%s\tpFlag:%s\tsec:%i\n",min_dist[current_second],max_dist[current_second],current_min,current_max,raw,CPR_flag?"TRUE":"FALSE",peak_flag?"TRUE":"FALSE",sec);
     if (sec > current_second && current_second < NUM_SECONDS) {  
       min_dist[current_second] = current_min;
       max_dist[current_second] = current_max;
@@ -316,7 +304,6 @@ void build_and_print_message(bool is_immediate) {
   char time_str[4];
   sprintf(time_str, "%03d", min(999, (int)timer_count));
   strncpy((buffer+4),time_str,3);
-  // buffer[4] = time_str[0]; buffer[5] = time_str[1]; buffer[6] = time_str[2];
 
   // Min/Max per second 
   for (int i = 0; i < NUM_SECONDS; i++) {
@@ -341,24 +328,20 @@ void build_and_print_message(bool is_immediate) {
     int pos = 7 + i * 6;
     sprintf(str, "%03d", min_depth_sec); //changed to min_depth_sec
     strncpy((buffer+pos),str,3);
-    // buffer[pos] = str[0]; buffer[pos+1] = str[1]; buffer[pos+2] = str[2];
     sprintf(str, "%03d", max_depth_sec); //changed to max_depth_sec
     strncpy((buffer+pos+3),str,3);
-    // buffer[pos+3] = str[0]; buffer[pos+4] = str[1]; buffer[pos+5] = str[2];
   }
   
   // CPR mode: True - report the counts in this 5-sec period; False - report the accummulated CPR counts so far
   // ********************************
   // For debug
   int acc_cpr_count = cpr_count; 
-  // Print and send
   Serial.printf("VALID CPR COUNT: %i\tVALID CPR RATE: %i\n",acc_cpr_count,cpr_rate);
   // ********************************
 
   char rate_str[4];
   sprintf(rate_str, "%03d", min(999, cpr_rate));
   strncpy((buffer+37),rate_str,3);
-  // buffer[37] = rate_str[0]; buffer[38] = rate_str[1]; buffer[39] = rate_str[2];
 
   // States
   int touch_state = debounced_touch_detected ? 1 : 0;
@@ -374,8 +357,7 @@ void build_and_print_message(bool is_immediate) {
   Serial.println(buffer);
 
   memcpy(myTxData.a, buffer, sizeof(myTxData.a));
-  SerialToC3.write((uint8_t*)&myTxData.a, sizeof(myTxData.a)-1);
-  
+  SerialToC3.write((uint8_t*)&myTxData.a, sizeof(myTxData.a)-1);  
 }
 
 void IRAM_ATTR button_pressed() {
@@ -519,11 +501,6 @@ void loop() {
   if (sending_enabled && !warmup_mode && second_counter - lastSend >= 5) { //5Second counter
     pixels.setPixelColor(0, pixels.Color(0, 0, 150));
     pixels.show();
-    // Serial.println(second_counter);							   
-    if (current_second <= NUM_SECONDS && current_min != OUT_OF_RANGE) {
-      min_dist[current_second] = current_min;
-      max_dist[current_second] = current_max;
-    }
     if (CPR_mode) { //counts in this 5-second period
       cpr_rate = cpr_count; 
       cpr_count =0 ;
