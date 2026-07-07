@@ -35,14 +35,14 @@
 #define NORMAL_MAX_MM 150 
 #define AVG_SAMPLES 5
 
-#define HEIGHT 80 //idle height of the manikin
+#define HEIGHT 78 //idle height of the manikin
 #define MAX_DEPTH 60 //maximum compression
 #define NOISE 15 //heigth detection noise with no compression
 #define OFFSET -5 //Idle distance = 80mm
 #define MIN_RECOIL_MM 70 
 #define CLEAR_PEAK 300 //change in V14
 #define DEBOUNCE_PEAK_MS 75 //shortest count possible, change in V16
-#define LOW_DIST 48 //Added in V14
+#define LOW_DIST 49 //Added in V14
 
 #define AED1_DETECT_PIN 38
 #define AED2_DETECT_PIN 8
