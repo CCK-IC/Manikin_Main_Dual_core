@@ -5,14 +5,19 @@
 #include <ESP32TimerInterrupt.h>
 #include <FDC2214.h>
 #include <Adafruit_NeoPixel.h>
+#include <Adafruit_DRV2605.h>
 #include "parameters.h"
 // DEBUG
 // #define RANGE_DEBUG
 // #define CPR_DEBUG
+// Feature Flags
+#define NEW_VB
 // Instances
 HardwareSerial SerialToC3(2);
+TwoWire I2C_2 = TwoWire(1);
 FDC2214 capsense(FDC2214_I2C_ADDR_0);
 Adafruit_NeoPixel pixels(NUMPIXELS, RGB, NEO_GRB + NEO_KHZ800);
+Adafruit_DRV2605 drv;
 VL53L1X lox; 
 ESP32Timer timer(0);
 //handshake
@@ -61,6 +66,7 @@ bool pump_timer = false;
 
 int pump_state = 0;
 int vibrator_state = 0;
+uint8_t currentAmplitude = map(30, 0, 100, 0, 255); //drv 
 
 volatile int timer_count = 0;
 int cpr_rate = 0;
@@ -385,6 +391,7 @@ void setup() {
 
   Wire.begin(SDA, SCL);
   Wire.setClock(I2C_SPEED);
+  I2C_2.begin(DRV_SDA, DRV_SCL);
 
   vTaskDelay(pdMS_TO_TICKS(1500));
   Serial.begin(115200);
@@ -428,6 +435,15 @@ void setup() {
   if (capOk) Serial.println("Sensor OK");  
   else Serial.println("Sensor Fail");
   recalibrate_touch_baseline();
+  #ifdef NEW_VB
+    if (!drv.begin(&I2C_2)) {
+    Serial.println("DRV2605 not found!");
+  } else {
+    drv.selectLibrary(6);          
+    drv.setMode(DRV2605_MODE_INTTRIG);
+    Serial.println("DRV2605 LRA ready (pattern 1)");
+  }
+  #endif
   timer.attachInterruptInterval(TIMER0_INTERVAL_MS * 1000, onTimer);
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_pressed, CHANGE);
   
@@ -548,8 +564,18 @@ void loop() {
   }
 
   if (vibrate_timer) {
+    #ifndef NEW_VB
     if (vibrator_state == 1 && current_100ms < 3) digitalWrite(VIB, HIGH);
     else digitalWrite(VIB, LOW);
+    #else
+    if (vibrator_state == 1 && (current_100ms == 3)) {   
+      drv.setWaveform(0, 56);     
+      drv.setWaveform(1, 0);
+      drv.writeRegister8(0x17, currentAmplitude);     
+      drv.go();
+      vTaskDelay(pdMS_TO_TICKS(70));   
+    }
+    #endif
     vibrate_timer = false;
   }
 

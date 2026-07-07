@@ -3,6 +3,8 @@
 #define SCL 2
 #define SDA 1
 #define I2C_SPEED 200000 
+#define DRV_SDA     3
+#define DRV_SCL     6
 
 #define CHAN_COUNT 2
 #define TOUCH_DELTA_THRESHOLD 150000
