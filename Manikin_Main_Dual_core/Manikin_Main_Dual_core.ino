@@ -211,6 +211,7 @@ void read_AED_metal(aed_t* aed ,uint8_t pin) {
 // Task1 
 void task1(void *parameter) {
   unsigned long lastpeak = 0;
+  int raws[10];
   while (true) {
     int raw;
     if (task1Flag) {
@@ -226,7 +227,12 @@ void task1(void *parameter) {
           raw = distance + (OFFSET);        
           if (distance != 0 && distance < 4000) {      
             #ifdef RANGE_DEBUG
-            if (!(current_100ms%3)) Serial.printf("raw(%03i)\tcFlag:%s\tpFlag:%s\tsec:%i\n",raw,CPR_flag?"TRUE":"FALSE",peak_flag?"TRUE":"FALSE",second_counter - collection_start);
+            raws[current_100ms] = raw;
+            if (current_100ms>= 9){ 
+              Serial.printf("\nsec:%i\n",second_counter - collection_start);
+              Serial.print("RAW:");for(int i = 0;i < 10;i++){Serial.print("[");Serial.printf("%03d",raws[i]);Serial.print("]");}Serial.println();
+              Serial.print("COM:");for(int i = 0;i < 10;i++){Serial.print("{");Serial.printf("%03d",(HEIGHT-raws[i])*1.5<=10?0:(int)((float)(HEIGHT-raws[i])*1.5f));Serial.print("}");}Serial.println();
+            }
             #endif
             //V14 - change the CPR detection method: CPR_flag is triggered when distance is less than LOW_DIST
             if (raw < LOW_DIST && CPR_flag == false && (!lastpeak || ((millis()-lastpeak) > DEBOUNCE_PEAK_MS))){
@@ -252,7 +258,7 @@ void task1(void *parameter) {
               peak_flag = false;
             }
           }
-        }
+      }
         xSemaphoreGive(i2cMutex);
       } else Serial.println("I2C mutex timeout in task1!");
 
@@ -425,7 +431,7 @@ void setup() {
   timer.attachInterruptInterval(TIMER0_INTERVAL_MS * 1000, onTimer);
   attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_pressed, CHANGE);
   
-  xTaskCreatePinnedToCore(task1, "ToF & Peak calculation and Cap Sensing", 4096, NULL, 1, NULL, 0);
+  xTaskCreate(task1, "ToF & Peak calculation and Cap Sensing", 4096, NULL, 0, NULL);
 
   current_min = OUT_OF_RANGE;
   current_max = 0;
@@ -501,6 +507,11 @@ void loop() {
   if (sending_enabled && !warmup_mode && second_counter - lastSend >= 5) { //5Second counter
     pixels.setPixelColor(0, pixels.Color(0, 0, 150));
     pixels.show();
+    // Serial.println(second_counter);							   
+    if (current_second <= NUM_SECONDS && current_min != OUT_OF_RANGE) {
+      min_dist[current_second] = current_min;
+      max_dist[current_second] = current_max;
+    }
     if (CPR_mode) { //counts in this 5-second period
       cpr_rate = cpr_count; 
       cpr_count =0 ;
