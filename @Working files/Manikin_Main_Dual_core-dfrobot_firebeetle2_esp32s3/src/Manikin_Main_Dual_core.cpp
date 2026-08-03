@@ -214,6 +214,42 @@ void read_AED_metal(aed_t* aed ,uint8_t pin) {
   }
 }
 
+//Task0 - button checking
+void btnTask(void *parameter) {
+   TickType_t xLastWakeTime = xTaskGetTickCount();
+  const TickType_t xFrequency = pdMS_TO_TICKS(50);
+  const unsigned long longPress_ms = 1000;
+  const unsigned long Debounce_ms = 100;
+  unsigned long lastPressed_ms = millis();
+  uint8_t lastState = 0;
+  for(;;){
+  vTaskDelayUntil(&xLastWakeTime, xFrequency);
+  uint8_t btnState = digitalRead(BUTTON_PIN); 
+  unsigned long now = millis();
+  // if ((now - lastPressed_ms)<Debounce_ms) continue;
+  // Serial.printf("VB:%i\tPressed:%i\tLast:%i\tNow:%lu\tPast:%lu\tDeltaT:%lu\n",vibrator_state,btnState,lastState,now,lastPressed_ms,now-lastPressed_ms);
+  if (!btnState){
+    if (!lastState) {
+      lastPressed_ms = now;
+      lastState = 1;
+      } else continue;
+    }else {
+      if (lastState){
+        if ((now - lastPressed_ms)>longPress_ms){
+          /* LONG  PRESS */
+          vibrator_state = !vibrator_state;
+          Serial.println("toggled");
+        }else if ((now - lastPressed_ms)>Debounce_ms){
+          /* SHORT PRESS */
+          CPR_mode = !CPR_mode;
+        }
+      } else continue;
+      lastState = 0;
+    }
+  }
+
+}
+
 // Task1 
 void task1(void *parameter) {
   unsigned long lastpeak = 0;
@@ -445,9 +481,10 @@ void setup() {
   }
   #endif
   timer.attachInterruptInterval(TIMER0_INTERVAL_MS * 1000, onTimer);
-  attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_pressed, CHANGE);
+  // attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_pressed, CHANGE);
   
   xTaskCreate(task1, "ToF & Peak calculation and Cap Sensing", 4096, NULL, 0, NULL);
+  xTaskCreate(btnTask,"btn",2048,NULL,0,NULL);
 
   current_min = OUT_OF_RANGE;
   current_max = 0;
@@ -568,7 +605,7 @@ void loop() {
     if (vibrator_state == 1 && current_100ms < 3) digitalWrite(VIB, HIGH);
     else digitalWrite(VIB, LOW);
     #else
-    if (vibrator_state == 1 && (current_100ms == 3)) {   
+    if (vibrator_state == 1 && (current_100ms % 2)) {   
       drv.setWaveform(0, 56);     
       drv.setWaveform(1, 0);
       drv.writeRegister8(0x17, currentAmplitude);     
