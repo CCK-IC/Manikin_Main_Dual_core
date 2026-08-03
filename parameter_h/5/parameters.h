@@ -3,9 +3,14 @@
 #define SCL 2
 #define SDA 1
 #define I2C_SPEED 200000 
+#ifndef USING_R3
 #define DRV_SDA     3
 #define DRV_SCL     6
-
+#else
+#define DRV_SDA     9
+#define DRV_SCL     18
+#endif
+ 
 #define CHAN_COUNT 2
 #define TOUCH_DELTA_THRESHOLD 150000
 #define BASELINE_SAMPLES 5
@@ -36,6 +41,7 @@
 #define NORMAL_MIN_MM 100  
 #define NORMAL_MAX_MM 150 
 #define AVG_SAMPLES 5
+#define AED_INTERVAL 2 //x 100ms  
 
 #define HEIGHT 80 //idle height of the manikin
 #define MAX_DEPTH 60 //maximum compression
@@ -46,6 +52,18 @@
 #define DEBOUNCE_PEAK_MS 75 //shortest count possible, change in V16
 #define LOW_DIST 47 //Added in V14
 
+#ifndef USING_R3
 #define AED1_DETECT_PIN 38
 #define AED2_DETECT_PIN 8
+#else
+#define AED1_DETECT_PIN 6
+#define AED2_DETECT_PIN 8
+#endif
+
 #define AED_DEBOUNCE_THRESHOLD 2   
+
+#ifdef USING_R3
+#define BIT0 17
+#define BIT1 15
+#define BIT2 16
+#endif
