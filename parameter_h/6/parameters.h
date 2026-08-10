@@ -1,4 +1,3 @@
-#define NEW_VB
 #define ID '6'
 #define UART_BAUD 115200
 #define SCL 2
@@ -64,7 +63,7 @@
 #define AED_DEBOUNCE_THRESHOLD 2   
 
 #ifdef USING_R3
-#define BIT0 17
-#define BIT1 15
-#define BIT2 16
+#define DIP0 17
+#define DIP1 15
+#define DIP2 16
 #endif

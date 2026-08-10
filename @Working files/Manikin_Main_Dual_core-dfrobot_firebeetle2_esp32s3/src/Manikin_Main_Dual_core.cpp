@@ -11,7 +11,6 @@
 // #define RANGE_DEBUG
 // #define CPR_DEBUG
 // Feature Flags
-#define NEW_VB
 // Instances
 HardwareSerial SerialToC3(2);
 TwoWire I2C_2 = TwoWire(1);
@@ -66,7 +65,7 @@ bool pump_timer = false;
 
 int pump_state = 0;
 int vibrator_state = 0;
-uint8_t currentAmplitude = map(30, 0, 100, 0, 255); //drv 
+uint8_t currentAmplitude = map(15, 0, 100, 0, 255); //drv 
 
 volatile int timer_count = 0;
 int cpr_rate = 0;

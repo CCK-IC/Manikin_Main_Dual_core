@@ -43,14 +43,14 @@
 #define AVG_SAMPLES 5
 #define AED_INTERVAL 2 //x 100ms  
 
-#define HEIGHT 85 //idle height of the manikin
+#define HEIGHT 78 //idle height of the manikin
 #define MAX_DEPTH 60 //maximum compression
 #define NOISE 15 //heigth detection noise with no compression
 #define OFFSET -23 //Idle distance = 80mm
-#define MIN_RECOIL_MM 65 
+#define MIN_RECOIL_MM 59 
 #define CLEAR_PEAK 300 //change in V14
-#define DEBOUNCE_PEAK_MS 75 //shortest count possible, change in V16
-#define LOW_DIST 48 //Added in V14
+#define DEBOUNCE_PEAK_MS 175 //shortest count possible, change in V16
+#define LOW_DIST 38 //Added in V14
 
 #ifndef USING_R3
 #define AED1_DETECT_PIN 38
@@ -63,7 +63,7 @@
 #define AED_DEBOUNCE_THRESHOLD 2   
 
 #ifdef USING_R3
-#define BIT0 17
-#define BIT1 15
-#define BIT2 16
+#define DIP0 17
+#define DIP1 15
+#define DIP2 16
 #endif
